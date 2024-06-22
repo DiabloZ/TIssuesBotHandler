@@ -6,17 +6,18 @@ import eu.vendeli.tgbot.annotations.InputHandler
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
 import eu.vendeli.tgbot.types.internal.ProcessedUpdate
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlin.random.nextInt
 
 private val userMap = ConcurrentHashMap<Long, UserVC>()
 private val userMapCaptcha = ConcurrentHashMap<Long, Int>()
+private val credentials = PropsReader.getCredentials()
 
-suspend fun main() = runBlocking {
-	val credentials = PropsReader.getCredentials()
+suspend fun main() {
 	val bot = TelegramBot(credentials.token)
 	bot.handleUpdates()
 }
@@ -24,7 +25,13 @@ suspend fun main() = runBlocking {
 @CommandHandler(["/start"])
 suspend fun start(user: User, bot: TelegramBot) {
 	message { "Доброго вам дня. Сейчас нужно будет подтвердить, что вы человек, давайте попробуем." }.send(user, bot)
-	Logger.printResult("Пользователь начал сессию - $user")
+	val enc = Json.encodeToString(user)
+	val us = (Json.parseToJsonElement(enc) as Map<*, *>).toMap()
+	var userLogMsg = "Пользователь ${user.id } начал сессию -"
+	us.forEach { (t, u) ->
+		userLogMsg += "\n$t - $u"
+	}
+	Logger.printResult(userLogMsg)
 	firstQuestionTextRepeat(user = user, bot = bot, isFirstTime = true)
 }
 
