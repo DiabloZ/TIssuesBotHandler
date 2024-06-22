@@ -16,6 +16,7 @@ import kotlin.random.nextInt
 private val userMap = ConcurrentHashMap<Long, UserVC>()
 private val userMapCaptcha = ConcurrentHashMap<Long, Int>()
 private val credentials = PropsReader.getCredentials()
+private val googleSheets by lazy { GoogleSheetsService(credentials.googleSheetCredentials) }
 
 suspend fun main() {
 	val bot = TelegramBot(credentials.token)
@@ -86,6 +87,7 @@ suspend fun entrance(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	message { "Введите номер вашей квартиры - " }.send(user, bot)
 	bot.inputListener[user] = "flatNumber"
 }
+
 @InputHandler(["flatNumber"])
 suspend fun flatNumber(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	val answeredText = update.text
@@ -93,6 +95,7 @@ suspend fun flatNumber(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	message { "Введите ваш номер телефона - " }.send(user, bot)
 	bot.inputListener[user] = "phoneNumber"
 }
+
 @InputHandler(["phoneNumber"])
 suspend fun phoneNumber(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	val answeredText = update.text
@@ -100,11 +103,13 @@ suspend fun phoneNumber(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	message { "Опишите вашу проблему - " }.send(user, bot)
 	bot.inputListener[user] = "issueText"
 }
+
 @InputHandler(["issueText"])
 suspend fun issueText(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	val answeredText = update.text
 	userMap[user.id]?.issueText = answeredText
 	message { "Спасибо. Мы постараемся вам помочь." }.send(user, bot)
+
 	userMap[user.id]?.let {
 		message { "Введенные данные - $it" }.send(user, bot)
 	}
@@ -114,19 +119,15 @@ fun User.toUserVC() = UserVC(
 	id = id,
 	isBot = isBot,
 	firstName = firstName,
-	lastName = lastName,
+	lastName = lastName ?: "",
 	username = "@$username",
-	languageCode = languageCode,
-	isPremium = isPremium,
-	addedToAttachmentMenu = addedToAttachmentMenu,
-	canJoinGroups = canJoinGroups,
-	canReadAllGroupMessages = canReadAllGroupMessages,
-	supportsInlineQueries = supportsInlineQueries,
-	canConnectToBusiness = canConnectToBusiness,
-	building = "",
-	flatNumber = "",
-	issueText = "",
-	phoneNumber = ""
+	languageCode = languageCode ?: "",
+	isPremium = isPremium ?: false,
+	addedToAttachmentMenu = addedToAttachmentMenu ?: false,
+	canJoinGroups = canJoinGroups ?: false,
+	canReadAllGroupMessages = canReadAllGroupMessages ?: false,
+	supportsInlineQueries = supportsInlineQueries ?: false,
+	canConnectToBusiness = canConnectToBusiness ?: false,
 )
 
 @Serializable
@@ -134,15 +135,15 @@ data class UserVC(
 	val id: Long,
 	val isBot: Boolean,
 	val firstName: String,
-	val lastName: String? = null,
-	val username: String? = null,
-	val languageCode: String? = null,
-	val isPremium: Boolean? = null,
-	val addedToAttachmentMenu: Boolean? = null,
-	val canJoinGroups: Boolean? = null,
-	val canReadAllGroupMessages: Boolean? = null,
-	val supportsInlineQueries: Boolean? = null,
-	val canConnectToBusiness: Boolean? = null,
+	val lastName: String,
+	val username: String,
+	val languageCode: String,
+	val isPremium: Boolean,
+	val addedToAttachmentMenu: Boolean,
+	val canJoinGroups: Boolean,
+	val canReadAllGroupMessages: Boolean,
+	val supportsInlineQueries: Boolean,
+	val canConnectToBusiness: Boolean,
 
 	var fullName: String = "", //ФИО
 	var building: String = "", //корпус
