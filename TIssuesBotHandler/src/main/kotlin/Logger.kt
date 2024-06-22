@@ -9,12 +9,13 @@ object Logger {
 	private val logger = LogManager.getRootLogger().apply {
 		Configurator.setAllLevels(this.name, Level.ALL)
 	}
+
 	fun printText(any: Any, text: Any){
 		logger.info("Function - $any - $text")
 	}
 
 	@Synchronized
-	fun printResult(text: Any){
+	fun printResult(text: Any?){
 		logger.info("$text")
 	}
 }

@@ -107,44 +107,60 @@ suspend fun phoneNumber(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 @InputHandler(["issueText"])
 suspend fun issueText(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	val answeredText = update.text
-	userMap[user.id]?.issueText = answeredText
 	message { "Спасибо. Мы постараемся вам помочь." }.send(user, bot)
 
-	userMap[user.id]?.let {
-		message { "Введенные данные - $it" }.send(user, bot)
-	}
+	val userVC = userMap[user.id]?.apply {
+		issueText = answeredText
+	} ?: return
+	val enc = Json.encodeToString(userVC)
+	val us = (Json.parseToJsonElement(enc) as Map<*, *>).toMap()
+
+	googleSheets.writeNewRow(
+		writeArray = mutableListOf(
+			mutableListOf<Any>().apply {
+				us.values.forEach {
+					if (it != null){
+						add(it.toString().replace("\"", ""))
+						Logger.printResult(it)
+					}
+				}
+			},
+		)
+	)
 }
 
 fun User.toUserVC() = UserVC(
-	id = id,
-	isBot = isBot,
+	id = id.toString(),
+	isBot = isBot.getStringPresentation(),
 	firstName = firstName,
 	lastName = lastName ?: "",
 	username = "@$username",
-	languageCode = languageCode ?: "",
-	isPremium = isPremium ?: false,
-	addedToAttachmentMenu = addedToAttachmentMenu ?: false,
-	canJoinGroups = canJoinGroups ?: false,
-	canReadAllGroupMessages = canReadAllGroupMessages ?: false,
-	supportsInlineQueries = supportsInlineQueries ?: false,
-	canConnectToBusiness = canConnectToBusiness ?: false,
+	//languageCode = languageCode ?: "",
+	isPremium = isPremium.getStringPresentation(),
+	//addedToAttachmentMenu = addedToAttachmentMenu.getStringPresentation(),
+	canJoinGroups = canJoinGroups.getStringPresentation(),
+	//canReadAllGroupMessages = canReadAllGroupMessages.getStringPresentation(),
+	//supportsInlineQueries = supportsInlineQueries.getStringPresentation(),
+	//canConnectToBusiness = canConnectToBusiness.getStringPresentation(),
 )
+
+fun Boolean?.getStringPresentation() = if (this == true) "Да" else "Нет"
+
 
 @Serializable
 data class UserVC(
-	val id: Long,
-	val isBot: Boolean,
+	val id: String,
+	val isBot: String,
 	val firstName: String,
 	val lastName: String,
 	val username: String,
-	val languageCode: String,
-	val isPremium: Boolean,
-	val addedToAttachmentMenu: Boolean,
-	val canJoinGroups: Boolean,
-	val canReadAllGroupMessages: Boolean,
-	val supportsInlineQueries: Boolean,
-	val canConnectToBusiness: Boolean,
-
+	//val languageCode: String,
+	val isPremium: String,
+	//val addedToAttachmentMenu: String,
+	val canJoinGroups: String,
+	//val canReadAllGroupMessages: String,
+	//val supportsInlineQueries: String,
+	//val canConnectToBusiness: String,
 	var fullName: String = "", //ФИО
 	var building: String = "", //корпус
 	var flatNumber: String = "", //номер квартиры
