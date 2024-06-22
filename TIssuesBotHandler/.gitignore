@@ -42,7 +42,10 @@ bin/
 .DS_Store
 
 /build
+/.kotlin
 /.idea
 /.gradle
-/props.txt
+/props.json
 /logs
+/credentials.json
+/tokens
