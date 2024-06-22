@@ -121,12 +121,12 @@ suspend fun issueText(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 				us.values.forEach {
 					if (it != null){
 						add(it.toString().replace("\"", ""))
-						Logger.printResult(it)
 					}
 				}
 			},
 		)
 	)
+	Logger.printResult("Пользователь ${userVC.id} успешно заполнил форму ")
 }
 
 fun User.toUserVC() = UserVC(
