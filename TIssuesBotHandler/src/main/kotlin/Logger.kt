@@ -13,6 +13,7 @@ object Logger {
 		logger.info("Function - $any - $text")
 	}
 
+	@Synchronized
 	fun printResult(text: Any){
 		logger.info("$text")
 	}
