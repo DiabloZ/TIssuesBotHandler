@@ -60,7 +60,7 @@ suspend fun startConversation(update: ProcessedUpdate, user: User, bot: Telegram
 suspend fun fullName(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	val answeredText = update.text
 	userMap[user.id]?.fullName = answeredText
-	message { "Спасибо. Введите ваш корпус - " }.send(user, bot)
+	message { "Введите ваш корпус - " }.send(user, bot)
 	bot.inputListener[user] = "building"
 }
 
@@ -68,7 +68,7 @@ suspend fun fullName(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 suspend fun building(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	val answeredText = update.text
 	userMap[user.id]?.building = answeredText
-	message { "Спасибо. Введите ваш подъезд - " }.send(user, bot)
+	message { "Введите ваш подъезд - " }.send(user, bot)
 	bot.inputListener[user] = "entrance"
 }
 
@@ -76,21 +76,21 @@ suspend fun building(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 suspend fun entrance(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	val answeredText = update.text
 	userMap[user.id]?.entrance = answeredText
-	message { "Спасибо. Введите номер вашей квартиры - " }.send(user, bot)
+	message { "Введите номер вашей квартиры - " }.send(user, bot)
 	bot.inputListener[user] = "flatNumber"
 }
 @InputHandler(["flatNumber"])
 suspend fun flatNumber(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	val answeredText = update.text
 	userMap[user.id]?.flatNumber = answeredText
-	message { "Спасибо. Введите ваш номер телефона - " }.send(user, bot)
+	message { "Введите ваш номер телефона - " }.send(user, bot)
 	bot.inputListener[user] = "phoneNumber"
 }
 @InputHandler(["phoneNumber"])
 suspend fun phoneNumber(update: ProcessedUpdate, user: User, bot: TelegramBot) {
 	val answeredText = update.text
 	userMap[user.id]?.phoneNumber = answeredText
-	message { "Спасибо. Опишите вашу проблему - " }.send(user, bot)
+	message { "Опишите вашу проблему - " }.send(user, bot)
 	bot.inputListener[user] = "issueText"
 }
 @InputHandler(["issueText"])
@@ -108,7 +108,7 @@ fun User.toUserVC() = UserVC(
 	isBot = isBot,
 	firstName = firstName,
 	lastName = lastName,
-	username = username,
+	username = "@$username",
 	languageCode = languageCode,
 	isPremium = isPremium,
 	addedToAttachmentMenu = addedToAttachmentMenu,
