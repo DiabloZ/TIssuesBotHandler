@@ -24,7 +24,7 @@ suspend fun setupBot() {
 	bot.handleUpdates {
 		onCommand("/start") {
 			counterMap[user.id] = 0
-			message { "Доброго Вам дня. Сейчас нужно будет подтвердить, что вы человек, давайте попробуем." }.send(user, bot)
+			message { "Доброго Вам дня. Сейчас нужно будет подтвердить, что Вы человек, давайте попробуем." }.send(user, bot)
 			val enc = Json.encodeToString(user)
 			val us = (Json.parseToJsonElement(enc) as Map<*, *>).toMap()
 			var userLogMsg = "Пользователь ${user.id } начал сессию -"
@@ -51,7 +51,7 @@ suspend fun setupBot() {
 					bot.inputListener[user] = "checkDataStep"
 				} else {
 					userMap[user.id] = user.toUserVC()
-					message { "Представьтесь полным фимилией именем и отчеством" }.replyKeyboardRemove().send(user, bot)
+					message { "Представьтесь полным фамилией, именем и отчеством" }.replyKeyboardRemove().send(user, bot)
 					bot.inputListener[user] = "fullName"
 				}
 
