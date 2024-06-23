@@ -46,7 +46,7 @@ suspend fun setupBot() {
 			val answeredText = update.text.toIntOrNull()
 			val num = userMapCaptcha[user.id]
 			if (answeredText == num) {
-				message { "Отлично. Спасибо." }.replyKeyboardRemove().send(user, bot)
+				message { "Отлично. Спасибо." }.send(user, bot)
 				if (userMap.containsKey(user.id)){
 					message("Вы уже заполняли данные ранее ").replyKeyboardMarkup {
 						options {
