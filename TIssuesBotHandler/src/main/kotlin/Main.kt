@@ -1,13 +1,8 @@
 package suhov.vitaly
 
 import eu.vendeli.tgbot.TelegramBot
-import eu.vendeli.tgbot.annotations.CommandHandler
-import eu.vendeli.tgbot.annotations.InputHandler
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
-import eu.vendeli.tgbot.types.internal.ProcessedUpdate
-import eu.vendeli.tgbot.types.internal.getOrNull
-import eu.vendeli.tgbot.types.internal.getUser
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -66,7 +61,7 @@ suspend fun setupBot() {
 			val answeredText = update.text.toIntOrNull()
 			val num = userMapCaptcha[user.id]
 			if (answeredText == num) {
-				message { "Отлично. Спасибо." }.send(user, bot)
+				message { "Отлично. Спасибо." }.replyKeyboardRemove().send(user, bot)
 				if (userMap.containsKey(user.id)){
 					message("Вы уже заполняли данные ранее ").replyKeyboardMarkup {
 						options {
@@ -178,8 +173,29 @@ suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: B
 	val randomOne = Random.nextInt(1..10)
 	val randomTwo = Random.nextInt(1..10)
 	message { "Сколько будет $randomOne + $randomTwo = ?" }.send(user, bot)
+	val rightAnswerNumber = Random.nextInt(0..5)
+	val rightAnswer = randomOne + randomTwo
+	val setAnswers = mutableSetOf<Int>()
+	while (setAnswers.size != 10){
+		setAnswers.add(rightAnswerNumber + Random.nextInt(0..10))
+	}
+	val setList = setAnswers.toList()
+	message("Вы уже заполняли данные ранее ").replyKeyboardMarkup {
+		options {
+			for (i in 0 until 6) {
+				if (i % 2 == 0){
+					br()
+				}
+				if (i == rightAnswerNumber) {
+					+ (rightAnswer).toString()
+				} else {
+					+ (setList.getOrNull(i) ?: Random.nextInt(0..10)).toString()
+				}
+			}
+		}
+	}.send(user, bot)
 
-	userMapCaptcha[user.id] = randomOne + randomTwo
+	userMapCaptcha[user.id] = rightAnswer
 	bot.inputListener[user] = "captcha"
 }
 
