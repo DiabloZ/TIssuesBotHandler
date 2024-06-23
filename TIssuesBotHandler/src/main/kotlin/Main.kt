@@ -3,9 +3,16 @@ package suhov.vitaly
 import eu.vendeli.tgbot.TelegramBot
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.text.SimpleDateFormat
+import java.time.LocalTime
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlin.random.nextInt
@@ -305,9 +312,10 @@ fun User.toUserVC() = UserVC(
 
 fun Boolean?.getStringPresentation() = if (this == true) "Да" else "Нет"
 
+val formatter = SimpleDateFormat("dd.MM.yyyy HH:mm")
 
 @Serializable
-data class UserVC(
+data class UserVC @OptIn(ExperimentalSerializationApi::class) constructor(
 	val id: String,
 	val isBot: String,
 	val firstName: String,
@@ -326,7 +334,7 @@ data class UserVC(
 	var issueText: String = "", //проблема
 	var phoneNumber: String = "", //телефон
 	var entrance: String = "", //подъезд
-
+	@EncodeDefault val data: String = formatter.format(Date()),
 )
 
 fun restoreSession() {
