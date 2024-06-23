@@ -18,28 +18,6 @@ private val googleSheets by lazy { GoogleSheetsService(credentials.googleSheetCr
 suspend fun main() {
 	restoreSession()
 	setupBot()
-	// val bot = TelegramBot(credentials.token)
-	// bot.handleUpdates {
-	// 	onCommand("/start") {
-	// 		message { "Hello, what's your name?" }.send(user, bot)
-	// 		bot.inputListener[user] = "conversation"
-	// 	}
-	// 	inputChain("conversation"){
-	// 		message { "Nice to meet you, ${update.text}" }.send(update.getUser(), bot)
-	// 		message { "What is your favorite food?" }.send(update.getUser(), bot)
-	// 	}.breakIf({ update.text == "peanut butter" }) { // chain break condition
-	// 		message { "Oh, too bad, I'm allergic to it." }.send(user!!, bot)
-	// 		bot.inputListener[user!!] = "conversation"
-	// 		// action that will be applied when match
-	// 	}.andThen {
-	// 		message { "Good" }.send(user!!, bot)
-	// 		bot.inputListener[user!!] = "None"
-	// 		// next input point if break condition doesn't match
-	//
-	// 	}
-	// }
-
-	//bot.handleUpdates()
 }
 
 suspend fun setupBot() {
@@ -104,42 +82,72 @@ suspend fun setupBot() {
 		inputChain("fullName") {
 			val user = user ?: return@inputChain
 			val answeredText = update.text
+
+			if (update.text.length < 5){
+				message { "Укажите ФИО полностью, пожалуйста." }.send(user, bot)
+				bot.inputListener[user] = "fullName"
+				return@inputChain
+			}
+
 			userMap[user.id]?.fullName = answeredText
-			message { "Введите ваш корпус - " }.send(user, bot)
-			bot.inputListener[user] = "building"
+			chooseBuilding(user = user, bot = bot, isFirstTime = true)
 		}
 
 		inputChain("building") {
 			val user = user ?: return@inputChain
 			val answeredText = update.text
+			if (answeredText != "1.1" && answeredText != "1.2"){
+				chooseBuilding(user = user, bot = bot, isFirstTime = false)
+				return@inputChain
+			}
 			userMap[user.id]?.building = answeredText
-			message { "Введите ваш подъезд - " }.send(user, bot)
-			bot.inputListener[user] = "entrance"
+			chooseEntrance(user = user, bot = bot, isFirstTime = true)
 		}
+
 		inputChain("entrance") {
 			val user = user ?: return@inputChain
 			val answeredText = update.text
+			if (answeredText != "1" && answeredText != "2" && answeredText != "3" && answeredText != "4"){
+				chooseEntrance(user = user, bot = bot, isFirstTime = false)
+				return@inputChain
+			}
 			userMap[user.id]?.entrance = answeredText
-			message { "Введите номер вашей квартиры - " }.send(user, bot)
-			bot.inputListener[user] = "flatNumber"
+			enterFlatNumber(user = user, bot = bot, isFirstTime = true)
 		}
+
 		inputChain("flatNumber") {
 			val user = user ?: return@inputChain
 			val answeredText = update.text
+			val answeredTextString = answeredText.toIntOrNull()
+			if (answeredTextString == null || answeredTextString <= 0 || answeredTextString >= 599){
+				enterFlatNumber(user = user, bot = bot, isFirstTime = false)
+				return@inputChain
+			}
 			userMap[user.id]?.flatNumber = answeredText
-			message { "Введите ваш номер телефона - " }.send(user, bot)
+			message { "Введите ваш номер телефона - " }.replyKeyboardRemove().send(user, bot)
 			bot.inputListener[user] = "phoneNumber"
 		}
+
 		inputChain("phoneNumber") {
 			val user = user ?: return@inputChain
-			val answeredText = update.text
+			val answeredText = update.text.clearPhoneNumber()
+			val isNotPhone = !answeredText.startsWith("7") && !answeredText.startsWith("8") && !answeredText.startsWith("9")
+			if (answeredText.length !in 10..11 || isNotPhone) {
+				enterPhoneNumber(user = user, bot = bot, isFirstTime = false)
+				return@inputChain
+			}
 			userMap[user.id]?.phoneNumber = answeredText
-			message { "Опишите вашу проблему - " }.send(user, bot)
-			bot.inputListener[user] = "issueText"
+			enterProblem(user = user, bot = bot, isFirstTime = true)
 		}
+
 		inputChain("issueText") {
 			val user = user ?: return@inputChain
 			val answeredText = update.text
+			if (answeredText.length > 200 || answeredText.length < 10) {
+				enterProblem(user = user, bot = bot, isFirstTime = false)
+				return@inputChain
+			}
+
 			message { "Спасибо. Мы постараемся вам помочь." }.send(user, bot)
 
 			val userVC = userMap[user.id]?.apply {
@@ -164,8 +172,6 @@ suspend fun setupBot() {
 		}
 	}
 }
-
-//3. Фильтры и валидации
 
 val counterMap = ConcurrentHashMap<Long, Int>()
 
@@ -209,6 +215,77 @@ suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: B
 	counterMap[user.id] = counter + 1
 	userMapCaptcha[user.id] = rightAnswer
 	bot.inputListener[user] = "captcha"
+}
+
+suspend fun chooseBuilding(user: User, bot: TelegramBot, isFirstTime: Boolean = false){
+	if (!isFirstTime){
+		message { "Нажмите на кнопку" }.send(user, bot)
+	}
+	message("Выберите корпус ").replyKeyboardMarkup {
+		options {
+			+ "1.1"
+			+ "1.2"
+		}
+	}.send(user, bot)
+	bot.inputListener[user] = "building"
+}
+
+suspend fun chooseEntrance(user: User, bot: TelegramBot, isFirstTime: Boolean = false){
+	if (!isFirstTime){
+		message { "Нажмите на кнопку" }.send(user, bot)
+	}
+	message("Выберите подъезд ").replyKeyboardMarkup {
+		options {
+			+ "1"
+			+ "2"
+			br()
+			+ "3"
+			+ "4"
+		}
+	}.send(user, bot)
+	bot.inputListener[user] = "entrance"
+}
+
+suspend fun enterFlatNumber(user: User, bot: TelegramBot, isFirstTime: Boolean = false){
+	if (!isFirstTime){
+		message { "Введите номер квартиры корректно и числами" }.send(user, bot)
+	} else {
+		message("Введите номер вашей квартиры (числом) - ").replyKeyboardRemove().send(user, bot)
+	}
+
+	bot.inputListener[user] = "flatNumber"
+}
+
+suspend fun enterPhoneNumber(user: User, bot: TelegramBot, isFirstTime: Boolean = false){
+	if (!isFirstTime){
+		message { "Введите телефон корректно и полностью" }.send(user, bot)
+	} else {
+		message("Введите ваш номер телефона - ").send(user, bot)
+	}
+
+	bot.inputListener[user] = "phoneNumber"
+}
+
+suspend fun enterProblem(user: User, bot: TelegramBot, length: Int = 0, isFirstTime: Boolean = false){
+	when{
+		!isFirstTime && length > 200 -> message { "Опишите проблему более лакончино" }.send(user, bot)
+		!isFirstTime && length < 10 -> message { "Опишите проблему более подробно" }.send(user, bot)
+		else -> {message { "Опишите вашу проблему как можно более емко (до 200 символов)- " }.send(user, bot)}
+	}
+
+	bot.inputListener[user] = "issueText"
+}
+
+private val regexDigital = Regex("(\\d+(?:\\.\\d+)?)")
+fun String.clearPhoneNumber(): String {
+	return regexDigital.findAll(this)
+		.toList()
+		.mapNotNull { it.groupValues.firstOrNull() }.joinToString(
+			separator = "",
+			prefix = "",
+			postfix = "",
+			truncated = "",
+		)
 }
 
 fun User.toUserVC() = UserVC(
@@ -280,5 +357,4 @@ private fun <E> MutableList<E>.toUserVc(): UserVC = UserVC(
 	issueText =     get(10).toString(),
 	phoneNumber =   get(11).toString(),
 	entrance =      get(12).toString()
-
 )
