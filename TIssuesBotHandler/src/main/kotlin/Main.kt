@@ -3,16 +3,14 @@ package suhov.vitaly
 import eu.vendeli.tgbot.TelegramBot
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
-import java.time.LocalTime
-import java.util.Calendar
 import java.util.Date
-import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlin.random.nextInt
@@ -22,7 +20,7 @@ private val userMapCaptcha = ConcurrentHashMap<Long, Int>()
 private val credentials = PropsReader.getCredentials()
 private val googleSheets by lazy { GoogleSheetsService(credentials.googleSheetCredentials) }
 
-suspend fun main() {
+fun main() = runBlocking {
 	restoreSession()
 	setupBot()
 }
@@ -31,6 +29,7 @@ suspend fun setupBot() {
 	val bot = TelegramBot(credentials.token)
 	bot.handleUpdates {
 		onCommand("/start") {
+			counterMap[user.id] = 0
 			message { "Доброго вам дня. Сейчас нужно будет подтвердить, что вы человек, давайте попробуем." }.send(user, bot)
 			val enc = Json.encodeToString(user)
 			val us = (Json.parseToJsonElement(enc) as Map<*, *>).toMap()
@@ -46,6 +45,7 @@ suspend fun setupBot() {
 			val answeredText = update.text.toIntOrNull()
 			val num = userMapCaptcha[user.id]
 			if (answeredText == num) {
+				counterMap[user.id] = 0
 				message { "Отлично. Спасибо." }.send(user, bot)
 				if (userMap.containsKey(user.id)){
 					message("Вы уже заполняли данные ранее ").replyKeyboardMarkup {
@@ -57,7 +57,7 @@ suspend fun setupBot() {
 					bot.inputListener[user] = "checkDataStep"
 				} else {
 					userMap[user.id] = user.toUserVC()
-					message { "Представьтесь полным фимилией именем и очеством" }.send(user, bot)
+					message { "Представьтесь полным фимилией именем и очеством" }.replyKeyboardRemove().send(user, bot)
 					bot.inputListener[user] = "fullName"
 				}
 
@@ -196,7 +196,6 @@ suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: B
 	}
 	val randomOne = Random.nextInt(1..10)
 	val randomTwo = Random.nextInt(1..10)
-	message { "Сколько будет $randomOne + $randomTwo = ?" }.send(user, bot)
 	val rightAnswerNumber = Random.nextInt(0..5)
 	val rightAnswer = randomOne + randomTwo
 	val setAnswers = mutableSetOf<Int>()
@@ -204,7 +203,7 @@ suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: B
 		setAnswers.add(rightAnswerNumber + Random.nextInt(0..10))
 	}
 	val setList = setAnswers.toList()
-	message("Вы уже заполняли данные ранее ").replyKeyboardMarkup {
+	message("Сколько будет $randomOne + $randomTwo = ?").replyKeyboardMarkup {
 		options {
 			for (i in 0 until 6) {
 				if (i % 2 == 0){
@@ -318,8 +317,8 @@ val formatter = SimpleDateFormat("dd.MM.yyyy HH:mm")
 data class UserVC @OptIn(ExperimentalSerializationApi::class) constructor(
 	val id: String,
 	val isBot: String,
-	val firstName: String,
 	val lastName: String,
+	val firstName: String,
 	val username: String,
 	//val languageCode: String,
 	val isPremium: String,
@@ -354,8 +353,8 @@ fun restoreSession() {
 private fun <E> MutableList<E>.toUserVc(): UserVC = UserVC(
 	id =            get(0).toString(),
 	isBot =         get(1).toString(),
-	firstName =     get(2).toString(),
-	lastName =      get(3).toString(),
+	lastName =      get(2).toString(),
+	firstName =     get(3).toString(),
 	username =      get(4).toString(),
 	isPremium =     get(5).toString(),
 	canJoinGroups = get(6).toString(),
