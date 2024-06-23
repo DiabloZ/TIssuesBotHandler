@@ -1,11 +1,13 @@
 plugins {
     id("com.google.devtools.ksp") version "2.0.0-1.0.22"
+    id("com.github.johnrengelman.shadow") version "8.1.1" // Убедитесь, что версия актуальна
     kotlin("plugin.serialization") version "2.0.0"
     kotlin("jvm") version "2.0.0"
+    application
 }
 
 group = "suhov.vitaly"
-version = "1.0-SNAPSHOT"
+version = ""
 
 repositories {
     mavenCentral()
@@ -13,6 +15,7 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+    implementation(kotlin("stdlib"))
     implementation("eu.vendeli:telegram-bot:6.1.0")
     implementation("com.google.devtools.ksp:symbol-processing-api:2.0.0-1.0.21")
     ksp("eu.vendeli:ksp:6.1.0")
@@ -36,11 +39,32 @@ tasks.test {
 }
 
 kotlin {
+
     jvmToolchain(20)
     sourceSets.main {
         kotlin.srcDir("build/generated/ksp/main/kotlin")
+
     }
     sourceSets.test {
         kotlin.srcDir("build/generated/ksp/test/kotlin")
+    }
+}
+
+application {
+    mainClass.set("suhov.vitaly.MainKt")  // Укажите путь к вашему основному классу
+}
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "suhov.vitaly.MainKt"  // Это добавляет основную секцию в манифест
+    }
+}
+
+tasks {
+    shadowJar {
+        archiveClassifier.set("")  // Убедитесь, что результат будет my-project.jar без дополнительного суффикса
+        manifest {
+            attributes["Main-Class"] = "suhov.vitaly.MainKt"  // Укажите путь к вашему основному классу
+        }
     }
 }
