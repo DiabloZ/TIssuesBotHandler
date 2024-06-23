@@ -6,6 +6,8 @@ import eu.vendeli.tgbot.annotations.InputHandler
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
 import eu.vendeli.tgbot.types.internal.ProcessedUpdate
+import eu.vendeli.tgbot.types.keyboard.*
+import eu.vendeli.tgbot.utils.builders.replyKeyboardMarkup
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -19,9 +21,13 @@ private val credentials = PropsReader.getCredentials()
 private val googleSheets by lazy { GoogleSheetsService(credentials.googleSheetCredentials) }
 
 suspend fun main() {
+	restoreSession()
 	val bot = TelegramBot(credentials.token)
 	bot.handleUpdates()
 }
+
+//2. Предлагать не заполнять данные снова.
+//3. Фильтры и валидации
 
 @CommandHandler(["/start"])
 suspend fun start(user: User, bot: TelegramBot) {
@@ -33,6 +39,9 @@ suspend fun start(user: User, bot: TelegramBot) {
 		userLogMsg += "\n$t - $u"
 	}
 	Logger.printResult(userLogMsg)
+
+
+
 	firstQuestionTextRepeat(user = user, bot = bot, isFirstTime = true)
 }
 
@@ -167,5 +176,32 @@ data class UserVC(
 	var issueText: String = "", //проблема
 	var phoneNumber: String = "", //телефон
 	var entrance: String = "", //подъезд
+
+)
+
+fun restoreSession() {
+	val restoredData = googleSheets.readSheet().getValues()
+	restoredData.onEachIndexed { index, entry ->
+		if (index != 0){
+			val userVC: UserVC = entry.toUserVc()
+			userMap[userVC.id.toLongOrNull() ?: Long.MIN_VALUE] = userVC
+		}
+	}
+}
+
+private fun <E> MutableList<E>.toUserVc(): UserVC = UserVC(
+	id = get(0).toString(),
+	isBot = get(1).toString(),
+	firstName = get(2).toString(),
+	lastName = get(3).toString(),
+	username = get(4).toString(),
+	isPremium = get(5).toString(),
+	canJoinGroups = get(6).toString(),
+	fullName = get(7).toString(),
+	building = get(8).toString(),
+	flatNumber = get(9).toString(),
+	issueText = get(10).toString(),
+	phoneNumber = get(11).toString(),
+	entrance = get(12).toString()
 
 )
