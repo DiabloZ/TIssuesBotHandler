@@ -6,8 +6,8 @@ import eu.vendeli.tgbot.annotations.InputHandler
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.User
 import eu.vendeli.tgbot.types.internal.ProcessedUpdate
-import eu.vendeli.tgbot.types.keyboard.*
-import eu.vendeli.tgbot.utils.builders.replyKeyboardMarkup
+import eu.vendeli.tgbot.types.internal.getOrNull
+import eu.vendeli.tgbot.types.internal.getUser
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -22,30 +22,154 @@ private val googleSheets by lazy { GoogleSheetsService(credentials.googleSheetCr
 
 suspend fun main() {
 	restoreSession()
+	setupBot()
+	// val bot = TelegramBot(credentials.token)
+	// bot.handleUpdates {
+	// 	onCommand("/start") {
+	// 		message { "Hello, what's your name?" }.send(user, bot)
+	// 		bot.inputListener[user] = "conversation"
+	// 	}
+	// 	inputChain("conversation"){
+	// 		message { "Nice to meet you, ${update.text}" }.send(update.getUser(), bot)
+	// 		message { "What is your favorite food?" }.send(update.getUser(), bot)
+	// 	}.breakIf({ update.text == "peanut butter" }) { // chain break condition
+	// 		message { "Oh, too bad, I'm allergic to it." }.send(user!!, bot)
+	// 		bot.inputListener[user!!] = "conversation"
+	// 		// action that will be applied when match
+	// 	}.andThen {
+	// 		message { "Good" }.send(user!!, bot)
+	// 		bot.inputListener[user!!] = "None"
+	// 		// next input point if break condition doesn't match
+	//
+	// 	}
+	// }
+
+	//bot.handleUpdates()
+}
+
+suspend fun setupBot() {
 	val bot = TelegramBot(credentials.token)
-	bot.handleUpdates()
-}
+	bot.handleUpdates {
+		onCommand("/start") {
+			message { "Доброго вам дня. Сейчас нужно будет подтвердить, что вы человек, давайте попробуем." }.send(user, bot)
+			val enc = Json.encodeToString(user)
+			val us = (Json.parseToJsonElement(enc) as Map<*, *>).toMap()
+			var userLogMsg = "Пользователь ${user.id } начал сессию -"
+			us.forEach { (t, u) ->
+				userLogMsg += "\n$t - $u"
+			}
+			firstQuestionTextRepeat(user = user, bot = bot, isFirstTime = true)
+		}
 
-//2. Предлагать не заполнять данные снова.
-//3. Фильтры и валидации
+		inputChain("captcha"){
+			val user = user ?: return@inputChain
+			val answeredText = update.text.toIntOrNull()
+			val num = userMapCaptcha[user.id]
+			if (answeredText == num) {
+				message { "Отлично. Спасибо." }.send(user, bot)
+				if (userMap.containsKey(user.id)){
+					message("Вы уже заполняли данные ранее ").replyKeyboardMarkup {
+						options {
+							+ "Хочу заполнить по другому"
+							+ "Перейти к описанию проблемы"
+						}
+					}.send(user, bot)
+					bot.inputListener[user] = "checkDataStep"
+				} else {
+					userMap[user.id] = user.toUserVC()
+					message { "Представьтесь полным фимилией именем и очеством" }.send(user, bot)
+					bot.inputListener[user] = "fullName"
+				}
 
-@CommandHandler(["/start"])
-suspend fun start(user: User, bot: TelegramBot) {
-	message { "Доброго вам дня. Сейчас нужно будет подтвердить, что вы человек, давайте попробуем." }.send(user, bot)
-	val enc = Json.encodeToString(user)
-	val us = (Json.parseToJsonElement(enc) as Map<*, *>).toMap()
-	var userLogMsg = "Пользователь ${user.id } начал сессию -"
-	us.forEach { (t, u) ->
-		userLogMsg += "\n$t - $u"
+			} else {
+				firstQuestionTextRepeat(user = user, bot = bot, isFirstTime = false)
+			}
+		}
+
+		inputChain("checkDataStep"){
+			val user = user ?: return@inputChain
+			val text = update.text
+			when (text) {
+				"Хочу заполнить по другому" -> {
+					message { "Представьтесь полным фимилией именем и очеством" }.replyKeyboardRemove().send(user, bot)
+					bot.inputListener[user] = "fullName"
+				}
+				"Перейти к описанию проблемы" -> {
+					message { "Опишите вашу проблему - " }.replyKeyboardRemove().send(user, bot)
+					bot.inputListener[user] = "issueText"
+				}
+			}
+
+		}.breakIf({update.text != "Хочу заполнить по другому" && update.text != "Перейти к описанию проблемы"}) {
+			val user = user ?: return@breakIf
+			message { "Нажмите на кнопки" }.send(user, bot)
+			bot.inputListener[user] = "captcha"
+		}
+
+		inputChain("fullName") {
+			val user = user ?: return@inputChain
+			val answeredText = update.text
+			userMap[user.id]?.fullName = answeredText
+			message { "Введите ваш корпус - " }.send(user, bot)
+			bot.inputListener[user] = "building"
+		}
+
+		inputChain("building") {
+			val user = user ?: return@inputChain
+			val answeredText = update.text
+			userMap[user.id]?.building = answeredText
+			message { "Введите ваш подъезд - " }.send(user, bot)
+			bot.inputListener[user] = "entrance"
+		}
+		inputChain("entrance") {
+			val user = user ?: return@inputChain
+			val answeredText = update.text
+			userMap[user.id]?.entrance = answeredText
+			message { "Введите номер вашей квартиры - " }.send(user, bot)
+			bot.inputListener[user] = "flatNumber"
+		}
+		inputChain("flatNumber") {
+			val user = user ?: return@inputChain
+			val answeredText = update.text
+			userMap[user.id]?.flatNumber = answeredText
+			message { "Введите ваш номер телефона - " }.send(user, bot)
+			bot.inputListener[user] = "phoneNumber"
+		}
+		inputChain("phoneNumber") {
+			val user = user ?: return@inputChain
+			val answeredText = update.text
+			userMap[user.id]?.phoneNumber = answeredText
+			message { "Опишите вашу проблему - " }.send(user, bot)
+			bot.inputListener[user] = "issueText"
+		}
+		inputChain("issueText") {
+			val user = user ?: return@inputChain
+			val answeredText = update.text
+			message { "Спасибо. Мы постараемся вам помочь." }.send(user, bot)
+
+			val userVC = userMap[user.id]?.apply {
+				issueText = answeredText
+			} ?: return@inputChain
+			val enc = Json.encodeToString(userVC)
+			val us = (Json.parseToJsonElement(enc) as Map<*, *>).toMap()
+
+			googleSheets.writeNewRow(
+				writeArray = mutableListOf(
+					mutableListOf<Any>().apply {
+						us.values.forEach {
+							if (it != null){
+								add(it.toString().replace("\"", ""))
+							}
+						}
+					},
+				)
+			)
+			Logger.printResult("Пользователь ${userVC.id} успешно заполнил форму ")
+		}
 	}
-	Logger.printResult(userLogMsg)
-
-
-
-	firstQuestionTextRepeat(user = user, bot = bot, isFirstTime = true)
 }
 
-
+//3. Фильтры и валидации
 
 suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: Boolean = false) {
 	if (!isFirstTime){
@@ -57,85 +181,6 @@ suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: B
 
 	userMapCaptcha[user.id] = randomOne + randomTwo
 	bot.inputListener[user] = "captcha"
-}
-
-@InputHandler(["captcha"])
-suspend fun startConversation(update: ProcessedUpdate, user: User, bot: TelegramBot) {
-	val answeredText = update.text.toIntOrNull()
-	val num = userMapCaptcha[user.id]
-	if (answeredText == num) {
-		userMap[user.id] = user.toUserVC()
-		message { "Отлично. Спасибо." }.send(user, bot)
-		message { "Представьтесь полным фимилией именем и очеством" }.send(user, bot)
-		bot.inputListener[user] = "fullName"
-	} else {
-		firstQuestionTextRepeat(user = user, bot = bot, isFirstTime = false)
-	}
-}
-
-@InputHandler(["fullName"])
-suspend fun fullName(update: ProcessedUpdate, user: User, bot: TelegramBot) {
-	val answeredText = update.text
-	userMap[user.id]?.fullName = answeredText
-	message { "Введите ваш корпус - " }.send(user, bot)
-	bot.inputListener[user] = "building"
-}
-
-@InputHandler(["building"])
-suspend fun building(update: ProcessedUpdate, user: User, bot: TelegramBot) {
-	val answeredText = update.text
-	userMap[user.id]?.building = answeredText
-	message { "Введите ваш подъезд - " }.send(user, bot)
-	bot.inputListener[user] = "entrance"
-}
-
-@InputHandler(["entrance"])
-suspend fun entrance(update: ProcessedUpdate, user: User, bot: TelegramBot) {
-	val answeredText = update.text
-	userMap[user.id]?.entrance = answeredText
-	message { "Введите номер вашей квартиры - " }.send(user, bot)
-	bot.inputListener[user] = "flatNumber"
-}
-
-@InputHandler(["flatNumber"])
-suspend fun flatNumber(update: ProcessedUpdate, user: User, bot: TelegramBot) {
-	val answeredText = update.text
-	userMap[user.id]?.flatNumber = answeredText
-	message { "Введите ваш номер телефона - " }.send(user, bot)
-	bot.inputListener[user] = "phoneNumber"
-}
-
-@InputHandler(["phoneNumber"])
-suspend fun phoneNumber(update: ProcessedUpdate, user: User, bot: TelegramBot) {
-	val answeredText = update.text
-	userMap[user.id]?.phoneNumber = answeredText
-	message { "Опишите вашу проблему - " }.send(user, bot)
-	bot.inputListener[user] = "issueText"
-}
-
-@InputHandler(["issueText"])
-suspend fun issueText(update: ProcessedUpdate, user: User, bot: TelegramBot) {
-	val answeredText = update.text
-	message { "Спасибо. Мы постараемся вам помочь." }.send(user, bot)
-
-	val userVC = userMap[user.id]?.apply {
-		issueText = answeredText
-	} ?: return
-	val enc = Json.encodeToString(userVC)
-	val us = (Json.parseToJsonElement(enc) as Map<*, *>).toMap()
-
-	googleSheets.writeNewRow(
-		writeArray = mutableListOf(
-			mutableListOf<Any>().apply {
-				us.values.forEach {
-					if (it != null){
-						add(it.toString().replace("\"", ""))
-					}
-				}
-			},
-		)
-	)
-	Logger.printResult("Пользователь ${userVC.id} успешно заполнил форму ")
 }
 
 fun User.toUserVC() = UserVC(
@@ -181,27 +226,31 @@ data class UserVC(
 
 fun restoreSession() {
 	val restoredData = googleSheets.readSheet().getValues()
-	restoredData.onEachIndexed { index, entry ->
-		if (index != 0){
-			val userVC: UserVC = entry.toUserVc()
-			userMap[userVC.id.toLongOrNull() ?: Long.MIN_VALUE] = userVC
+	val firstElement = restoredData.firstOrNull()
+	restoredData.mapNotNull {
+		if (firstElement == it){
+			null
+		} else {
+			it.toUserVc()
 		}
-	}
+	}.reversed()
+		.distinctBy { it.id }
+		.forEach { userMap[it.id.toLongOrNull() ?: Long.MIN_VALUE] = it }
 }
 
 private fun <E> MutableList<E>.toUserVc(): UserVC = UserVC(
-	id = get(0).toString(),
-	isBot = get(1).toString(),
-	firstName = get(2).toString(),
-	lastName = get(3).toString(),
-	username = get(4).toString(),
-	isPremium = get(5).toString(),
+	id =            get(0).toString(),
+	isBot =         get(1).toString(),
+	firstName =     get(2).toString(),
+	lastName =      get(3).toString(),
+	username =      get(4).toString(),
+	isPremium =     get(5).toString(),
 	canJoinGroups = get(6).toString(),
-	fullName = get(7).toString(),
-	building = get(8).toString(),
-	flatNumber = get(9).toString(),
-	issueText = get(10).toString(),
-	phoneNumber = get(11).toString(),
-	entrance = get(12).toString()
+	fullName =      get(7).toString(),
+	building =      get(8).toString(),
+	flatNumber =    get(9).toString(),
+	issueText =     get(10).toString(),
+	phoneNumber =   get(11).toString(),
+	entrance =      get(12).toString()
 
 )
