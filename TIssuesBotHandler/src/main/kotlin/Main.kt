@@ -160,13 +160,24 @@ suspend fun setupBot() {
 				)
 			)
 			Logger.printResult("Пользователь ${userVC.id} успешно заполнил форму ")
+			bot.inputListener[user] = "!!!"
 		}
 	}
 }
 
 //3. Фильтры и валидации
 
+val counterMap = ConcurrentHashMap<Long, Int>()
+
 suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: Boolean = false) {
+	val counter = counterMap[user.id] ?: 0
+
+	if (counter == 3) {
+		counterMap[user.id] = 0
+		message { "В следующий раз повезёт. Досвидания." }.replyKeyboardRemove().send(user, bot)
+		return
+	}
+
 	if (!isFirstTime){
 		message { "Попробуйте ещё раз" }.send(user, bot)
 	}
@@ -195,6 +206,7 @@ suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: B
 		}
 	}.send(user, bot)
 
+	counterMap[user.id] = counter + 1
 	userMapCaptcha[user.id] = rightAnswer
 	bot.inputListener[user] = "captcha"
 }
