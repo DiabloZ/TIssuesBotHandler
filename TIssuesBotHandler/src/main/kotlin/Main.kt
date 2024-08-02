@@ -1,8 +1,25 @@
 package suhov.vitaly
 
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
+import suhov.vitaly.AsyncUtils.runPing
+import suhov.vitaly.AsyncUtils.scope
 
 fun main() = runBlocking {
-	restoreSession()
-	setupBot()
+	runBot()
+	while (true){
+		runPing(
+			whenError = {
+				runBot()
+			}
+		)
+	}
+}
+var runJob: Job? = null
+
+fun runBot(){
+	runJob?.cancel()
+	runJob = scope.launch {
+		restoreSession()
+		setupBot()
+	}
 }
