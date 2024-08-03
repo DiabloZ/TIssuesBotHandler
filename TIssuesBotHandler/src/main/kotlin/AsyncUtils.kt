@@ -25,13 +25,8 @@ object AsyncUtils {
 		while (true){
 			count++
 			val time = measureTime {
-				val isReachable = kotlin.runCatching {
-					val result = host.isReachable()
-					if (!result) {
-						error("host is not reachable")
-					}
-				}
-				if (isReachable.isFailure){
+				val result = host.isReachable()
+				if (!result) {
 					errCounter++
 				}
 			}
