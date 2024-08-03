@@ -8,6 +8,50 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import suhov.vitaly.TextConstants.Texts.BUILDING_RIGHT_ANSWER_1
+import suhov.vitaly.TextConstants.Texts.BUILDING_RIGHT_ANSWER_2
+import suhov.vitaly.TextConstants.Texts.CHECK_ERR
+import suhov.vitaly.TextConstants.Texts.CHECK_VARIANT1
+import suhov.vitaly.TextConstants.Texts.CHECK_VARIANT2
+import suhov.vitaly.TextConstants.Commands.BUILDING
+import suhov.vitaly.TextConstants.Commands.CAPTCHA
+import suhov.vitaly.TextConstants.Commands.CHECK_DATA_STEP
+import suhov.vitaly.TextConstants.Commands.END
+import suhov.vitaly.TextConstants.Commands.ENTRANCE
+import suhov.vitaly.TextConstants.Commands.FLAT_NUMBER
+import suhov.vitaly.TextConstants.Commands.FULL_NAME
+import suhov.vitaly.TextConstants.Commands.ISSUE_TEXT
+import suhov.vitaly.TextConstants.Commands.START
+import suhov.vitaly.TextConstants.Texts.ENTRANCE_RIGHT_ANSWER_1
+import suhov.vitaly.TextConstants.Texts.ENTRANCE_RIGHT_ANSWER_2
+import suhov.vitaly.TextConstants.Texts.ENTRANCE_RIGHT_ANSWER_3
+import suhov.vitaly.TextConstants.Texts.ENTRANCE_RIGHT_ANSWER_4
+import suhov.vitaly.TextConstants.Texts.FULLNAME_TEXT
+import suhov.vitaly.TextConstants.Texts.START_MESSAGE
+import suhov.vitaly.TextConstants.Texts.CAPTCHA_MESSAGE_1
+import suhov.vitaly.TextConstants.Texts.CAPTCHA_MESSAGE_2
+import suhov.vitaly.TextConstants.Texts.CAPTCHA_MESSAGE_INPUT
+import suhov.vitaly.TextConstants.Texts.CAPTCHA_OPTION_1
+import suhov.vitaly.TextConstants.Texts.CAPTCHA_OPTION_2
+import suhov.vitaly.TextConstants.Texts.CAPTCHA_SUCCESS
+import suhov.vitaly.TextConstants.Commands.PHONE_NUMBER
+import suhov.vitaly.TextConstants.Texts.BLOCK_USER_MESSAGE
+import suhov.vitaly.TextConstants.Texts.CHOOSE_BUILDING_MESSAGE
+import suhov.vitaly.TextConstants.Texts.CHOOSE_ENTRANCE_MESSAGE
+import suhov.vitaly.TextConstants.Texts.ENTER_PROBLEM_LOGNER
+import suhov.vitaly.TextConstants.Texts.ENTER_PROBLEM_MESSAGE
+import suhov.vitaly.TextConstants.Texts.ENTER_PROBLEM_SHORTER
+import suhov.vitaly.TextConstants.Texts.FLAT_NUMBER_MESSAGE
+import suhov.vitaly.TextConstants.Texts.ERROR_FLAT_NUMBER_MESSAGE
+import suhov.vitaly.TextConstants.Texts.PHONE_NUMBER_MESSAGE
+import suhov.vitaly.TextConstants.Texts.ERROR_PHONE_NUMBER_MESSAGE
+import suhov.vitaly.TextConstants.Texts.INPUT_PHONE_NUMBER
+import suhov.vitaly.TextConstants.Texts.ISSUE_MESSAGE
+import suhov.vitaly.TextConstants.Texts.PHONE_PREFIX_1
+import suhov.vitaly.TextConstants.Texts.PHONE_PREFIX_2
+import suhov.vitaly.TextConstants.Texts.PHONE_PREFIX_3
+import suhov.vitaly.TextConstants.Texts.PRESS_BUTTON_MESSAGE
+import suhov.vitaly.TextConstants.Texts.TRY_AGAIN_MESSAGE
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
@@ -22,101 +66,106 @@ private val googleSheets by lazy { GoogleSheetsService(credentials.googleSheetCr
 suspend fun setupBot() {
 	val bot = TelegramBot(credentials.token)
 	bot.handleUpdates {
-		onCommand("/start") {
+		onCommand(START) {
 			counterMap[user.id] = 0
-			message { "Доброго Вам дня. Сейчас нужно будет подтвердить, что Вы человек, давайте попробуем." }.send(user, bot)
+			message { START_MESSAGE }.send(user, bot)
 			val enc = Json.encodeToString(user)
 			val us = (Json.parseToJsonElement(enc) as Map<*, *>).toMap()
-			var userLogMsg = "Пользователь ${user.id } начал сессию -"
-			us.forEach { (t, u) ->
-				userLogMsg += "\n$t - $u"
-			}
+			LoggerUtils.startSession(user.id, us)
 			firstQuestionTextRepeat(user = user, bot = bot, isFirstTime = true)
 		}
 
-		inputChain("captcha"){
+		inputChain(CAPTCHA){
 			val user = user ?: return@inputChain
 			val answeredText = update.text.toIntOrNull()
 			val num = userMapCaptcha[user.id]
 			if (answeredText == num) {
 				counterMap[user.id] = 0
-				message { "Отлично. Спасибо." }.send(user, bot)
+				message { CAPTCHA_SUCCESS }.send(user, bot)
 				if (userMap.containsKey(user.id)){
-					message("Вы уже заполняли данные ранее ").replyKeyboardMarkup {
+					message(CAPTCHA_MESSAGE_INPUT).replyKeyboardMarkup {
 						options {
-							+ "Хочу заполнить по другому"
-							+ "Перейти к описанию проблемы"
+							+ CAPTCHA_OPTION_1
+							+ CAPTCHA_OPTION_2
 						}
 					}.send(user, bot)
-					bot.inputListener[user] = "checkDataStep"
+					bot.inputListener[user] = CHECK_DATA_STEP
 				} else {
 					userMap[user.id] = user.toUserVC()
-					message { "Представьтесь полным фамилией, именем и отчеством" }.replyKeyboardRemove().send(user, bot)
-					bot.inputListener[user] = "fullName"
+					message { CAPTCHA_MESSAGE_1 }.replyKeyboardRemove().send(user, bot)
+					bot.inputListener[user] = FULL_NAME
 				}
-
+				LoggerUtils.completeCaptcha(user.id)
 			} else {
 				firstQuestionTextRepeat(user = user, bot = bot, isFirstTime = false)
 			}
 		}
 
-		inputChain("checkDataStep"){
+		inputChain(CHECK_DATA_STEP){
 			val user = user ?: return@inputChain
 			val text = update.text
 			when (text) {
-				"Хочу заполнить по другому" -> {
-					message { "Представьтесь полным фамилией именем и отчеством" }.replyKeyboardRemove().send(user, bot)
-					bot.inputListener[user] = "fullName"
+				CHECK_VARIANT1 -> {
+					message { CAPTCHA_MESSAGE_1 }.replyKeyboardRemove().send(user, bot)
+					bot.inputListener[user] = FULL_NAME
 				}
-				"Перейти к описанию проблемы" -> {
-					message { "Опишите вашу проблему - " }.replyKeyboardRemove().send(user, bot)
-					bot.inputListener[user] = "issueText"
+				CHECK_VARIANT2 -> {
+					message { CAPTCHA_MESSAGE_2 }.replyKeyboardRemove().send(user, bot)
+					bot.inputListener[user] = ISSUE_TEXT
 				}
 			}
-
-		}.breakIf({update.text != "Хочу заполнить по другому" && update.text != "Перейти к описанию проблемы"}) {
+			LoggerUtils.completeCheckData(user.id)
+		}.breakIf({update.text != CHECK_VARIANT1 && update.text != CHECK_VARIANT2}) {
 			val user = user ?: return@breakIf
-			message { "Нажмите на кнопки" }.send(user, bot)
-			bot.inputListener[user] = "captcha"
+			message { CHECK_ERR }.send(user, bot)
+			bot.inputListener[user] = CAPTCHA
 		}
 
-		inputChain("fullName") {
+		inputChain(FULL_NAME) {
 			val user = user ?: return@inputChain
 			val answeredText = update.text
 
 			if (update.text.length < 5){
-				message { "Укажите ФИО полностью, пожалуйста." }.send(user, bot)
-				bot.inputListener[user] = "fullName"
+				message { FULLNAME_TEXT }.send(user, bot)
+				bot.inputListener[user] = FULL_NAME
 				return@inputChain
 			}
 
 			userMap[user.id]?.fullName = answeredText
 			chooseBuilding(user = user, bot = bot, isFirstTime = true)
+			LoggerUtils.completeFullName(user.id)
 		}
 
-		inputChain("building") {
+		inputChain(BUILDING) {
 			val user = user ?: return@inputChain
 			val answeredText = update.text
-			if (answeredText != "1.1" && answeredText != "1.2"){
+			if (answeredText != BUILDING_RIGHT_ANSWER_1 && answeredText != BUILDING_RIGHT_ANSWER_2){
 				chooseBuilding(user = user, bot = bot, isFirstTime = false)
 				return@inputChain
 			}
 			userMap[user.id]?.building = answeredText
 			chooseEntrance(user = user, bot = bot, isFirstTime = true)
+			LoggerUtils.completeBuilding(user.id)
 		}
 
-		inputChain("entrance") {
+		inputChain(ENTRANCE) {
 			val user = user ?: return@inputChain
 			val answeredText = update.text
-			if (answeredText != "1" && answeredText != "2" && answeredText != "3" && answeredText != "4"){
+			if (
+				answeredText != ENTRANCE_RIGHT_ANSWER_1 &&
+				answeredText != ENTRANCE_RIGHT_ANSWER_2 &&
+				answeredText != ENTRANCE_RIGHT_ANSWER_3 &&
+				answeredText != ENTRANCE_RIGHT_ANSWER_4
+			){
 				chooseEntrance(user = user, bot = bot, isFirstTime = false)
 				return@inputChain
 			}
 			userMap[user.id]?.entrance = answeredText
 			enterFlatNumber(user = user, bot = bot, isFirstTime = true)
+			LoggerUtils.completeEntrance(user.id)
 		}
 
-		inputChain("flatNumber") {
+		inputChain(FLAT_NUMBER) {
 			val user = user ?: return@inputChain
 			val answeredText = update.text
 			val answeredTextString = answeredText.toIntOrNull()
@@ -125,23 +174,27 @@ suspend fun setupBot() {
 				return@inputChain
 			}
 			userMap[user.id]?.flatNumber = answeredText
-			message { "Введите ваш номер телефона - " }.replyKeyboardRemove().send(user, bot)
-			bot.inputListener[user] = "phoneNumber"
+			message { INPUT_PHONE_NUMBER }.replyKeyboardRemove().send(user, bot)
+			bot.inputListener[user] = PHONE_NUMBER
+			LoggerUtils.completeFlat(user.id)
 		}
 
-		inputChain("phoneNumber") {
+		inputChain(PHONE_NUMBER) {
 			val user = user ?: return@inputChain
 			val answeredText = update.text.clearPhoneNumber()
-			val isNotPhone = !answeredText.startsWith("7") && !answeredText.startsWith("8") && !answeredText.startsWith("9")
+			val isNotPhone = !answeredText.startsWith(PHONE_PREFIX_1) &&
+				!answeredText.startsWith(PHONE_PREFIX_2) &&
+				!answeredText.startsWith(PHONE_PREFIX_3)
 			if (answeredText.length !in 10..11 || isNotPhone) {
 				enterPhoneNumber(user = user, bot = bot, isFirstTime = false)
 				return@inputChain
 			}
 			userMap[user.id]?.phoneNumber = answeredText
 			enterProblem(user = user, bot = bot, isFirstTime = true)
+			LoggerUtils.completePhoneNumber(user.id)
 		}
 
-		inputChain("issueText") {
+		inputChain(ISSUE_TEXT) {
 			val user = user ?: return@inputChain
 			val answeredText = update.text
 			if (answeredText.length > 200 || answeredText.length < 10) {
@@ -149,7 +202,7 @@ suspend fun setupBot() {
 				return@inputChain
 			}
 
-			message { "Спасибо. Мы постараемся Вам помочь." }.send(user, bot)
+			message { ISSUE_MESSAGE }.send(user, bot)
 
 			val userVC = userMap[user.id]?.apply {
 				issueText = answeredText
@@ -168,8 +221,8 @@ suspend fun setupBot() {
 					},
 				)
 			)
-			Logger.printResult("Пользователь ${userVC.id} успешно заполнил форму ")
-			bot.inputListener[user] = "!!!"
+			LoggerUtils.completeIssueText(userVC.id)
+			bot.inputListener[user] = END
 		}
 	}
 }
@@ -181,12 +234,12 @@ suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: B
 
 	if (counter == 3) {
 		counterMap[user.id] = 0
-		message { "В следующий раз повезёт. Досвидания." }.replyKeyboardRemove().send(user, bot)
+		message { BLOCK_USER_MESSAGE }.replyKeyboardRemove().send(user, bot)
 		return
 	}
 
 	if (!isFirstTime){
-		message { "Попробуйте ещё раз" }.send(user, bot)
+		message { TRY_AGAIN_MESSAGE }.send(user, bot)
 	}
 	val randomOne = Random.nextInt(1..10)
 	val randomTwo = Random.nextInt(1..10)
@@ -197,7 +250,8 @@ suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: B
 		setAnswers.add(rightAnswerNumber + Random.nextInt(0..10))
 	}
 	val setList = setAnswers.toList()
-	message("Сколько будет $randomOne + $randomTwo = ?").replyKeyboardMarkup {
+
+	message(TextUtils.firstQuestionRepeatText(randomOne, randomTwo)).replyKeyboardMarkup {
 		options {
 			for (i in 0 until 6) {
 				if (i % 2 == 0){
@@ -214,67 +268,67 @@ suspend fun firstQuestionTextRepeat(user: User, bot: TelegramBot, isFirstTime: B
 
 	counterMap[user.id] = counter + 1
 	userMapCaptcha[user.id] = rightAnswer
-	bot.inputListener[user] = "captcha"
+	bot.inputListener[user] = CAPTCHA
 }
 
 suspend fun chooseBuilding(user: User, bot: TelegramBot, isFirstTime: Boolean = false){
 	if (!isFirstTime){
-		message { "Нажмите на кнопку" }.send(user, bot)
+		message { PRESS_BUTTON_MESSAGE }.send(user, bot)
 	}
-	message("Выберите корпус ").replyKeyboardMarkup {
+	message(CHOOSE_BUILDING_MESSAGE).replyKeyboardMarkup {
 		options {
-			+ "1.1"
-			+ "1.2"
+			+ BUILDING_RIGHT_ANSWER_1
+			+ BUILDING_RIGHT_ANSWER_2
 		}
 	}.send(user, bot)
-	bot.inputListener[user] = "building"
+	bot.inputListener[user] = BUILDING
 }
 
 suspend fun chooseEntrance(user: User, bot: TelegramBot, isFirstTime: Boolean = false){
 	if (!isFirstTime){
-		message { "Нажмите на кнопку" }.send(user, bot)
+		message { PRESS_BUTTON_MESSAGE }.send(user, bot)
 	}
-	message("Выберите подъезд ").replyKeyboardMarkup {
+	message(CHOOSE_ENTRANCE_MESSAGE).replyKeyboardMarkup {
 		options {
-			+ "1"
-			+ "2"
+			+ ENTRANCE_RIGHT_ANSWER_1
+			+ ENTRANCE_RIGHT_ANSWER_2
 			br()
-			+ "3"
-			+ "4"
+			+ ENTRANCE_RIGHT_ANSWER_3
+			+ ENTRANCE_RIGHT_ANSWER_4
 		}
 	}.send(user, bot)
-	bot.inputListener[user] = "entrance"
+	bot.inputListener[user] = ENTRANCE
 }
 
 suspend fun enterFlatNumber(user: User, bot: TelegramBot, isFirstTime: Boolean = false){
 	if (!isFirstTime){
-		message { "Введите номер квартиры корректно и числами" }.send(user, bot)
+		message { FLAT_NUMBER_MESSAGE }.send(user, bot)
 	} else {
-		message("Введите номер вашей квартиры (числом) - ").replyKeyboardRemove().send(user, bot)
+		message(ERROR_FLAT_NUMBER_MESSAGE).replyKeyboardRemove().send(user, bot)
 	}
 
-	bot.inputListener[user] = "flatNumber"
+	bot.inputListener[user] = FLAT_NUMBER
 }
 
 suspend fun enterPhoneNumber(user: User, bot: TelegramBot, isFirstTime: Boolean = false){
 	if (!isFirstTime){
-		message { "Введите телефон корректно и полностью" }.send(user, bot)
+		message { ERROR_PHONE_NUMBER_MESSAGE }.send(user, bot)
 	} else {
-		message("Введите ваш номер телефона - ").send(user, bot)
+		message(PHONE_NUMBER_MESSAGE).send(user, bot)
 	}
 
-	bot.inputListener[user] = "phoneNumber"
+	bot.inputListener[user] = PHONE_NUMBER
 }
 
 suspend fun enterProblem(user: User, bot: TelegramBot, length: Int = 0, isFirstTime: Boolean = false){
 	when{
-		!isFirstTime && length > 200 -> message { "Опишите проблему более лакончино" }.send(user, bot)
-		!isFirstTime && length < 10 -> message { "Опишите проблему более подробно" }.send(user, bot)
+		!isFirstTime && length > 200 -> message { ENTER_PROBLEM_SHORTER }.send(user, bot)
+		!isFirstTime && length < 10 -> message { ENTER_PROBLEM_LOGNER }.send(user, bot)
 		else -> {
-			message { "Опишите вашу проблему как можно более емко (до 200 символов)- " }.send(user, bot)}
+			message { ENTER_PROBLEM_MESSAGE }.send(user, bot)}
 	}
 
-	bot.inputListener[user] = "issueText"
+	bot.inputListener[user] = ISSUE_TEXT
 }
 
 private val regexDigital = Regex("(\\d+(?:\\.\\d+)?)")
