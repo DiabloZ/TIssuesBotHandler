@@ -207,6 +207,7 @@ suspend fun setupBot() {
 
 			val userVC = userMap[user.id]?.apply {
 				issueText = answeredText
+				data = formatter.format(Date())
 			} ?: return@inputChain
 			val enc = Json.encodeToString(userVC)
 			val us = (Json.parseToJsonElement(enc) as Map<*, *>).toMap()
@@ -383,7 +384,7 @@ data class UserVC @OptIn(ExperimentalSerializationApi::class) constructor(
 	var issueText: String = "", //проблема
 	var phoneNumber: String = "", //телефон
 	var entrance: String = "", //подъезд
-	@EncodeDefault val data: String = formatter.format(Date()),
+	@EncodeDefault var data: String = formatter.format(Date()),
 )
 
 fun restoreSession() {
