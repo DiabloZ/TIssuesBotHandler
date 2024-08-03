@@ -9,6 +9,9 @@ fun main() = runBlocking {
 	while (true){
 		runPing(
 			whenError = {
+				runJob?.cancel()
+			},
+			doAfterOn = {
 				runBot()
 			}
 		)
