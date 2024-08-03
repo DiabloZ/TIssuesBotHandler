@@ -64,6 +64,7 @@ private val credentials = PropsReader.getCredentials()
 private val googleSheets by lazy { GoogleSheetsService(credentials.googleSheetCredentials) }
 
 suspend fun setupBot() {
+	LoggerUtils.startBot()
 	val bot = TelegramBot(credentials.token)
 	bot.handleUpdates {
 		onCommand(START) {

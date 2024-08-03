@@ -2,6 +2,10 @@ package suhov.vitaly
 
 object LoggerUtils {
 
+	fun startBot(){
+		Logger.printResult("Телеграмм бот был запущен")
+	}
+
 	fun startSession(userID: Long, userData: Map<Any?, Any?>){
 		var userLogMsg = "Пользователь $userID начал сессию -"
 		userData.forEach { (t, u) ->
